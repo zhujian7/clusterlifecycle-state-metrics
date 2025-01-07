@@ -412,7 +412,12 @@ func getHubClusterID(ocpClient ocpclient.Interface, kubeClient kubernetes.Interf
 func isTimestampMetricsEnabled(clientset *kubernetes.Clientset) (bool, error) {
 	namespace, err := GetComponentNamespace()
 	if err != nil {
-		return false, fmt.Errorf("failed to get namespace: %v", err)
+		if !os.IsNotExist(err) {
+			return false, fmt.Errorf("failed to get namespace: %v", err)
+		}
+		// the local test will run into here
+		klog.Info("serviceaccount namespace file does not exist, enable timestamp metrics")
+		return true, nil
 	}
 
 	// Get the ConfigMap
