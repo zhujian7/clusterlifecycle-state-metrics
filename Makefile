@@ -25,9 +25,7 @@ export DOCKER_BUILDER    ?= docker
 
 export KUBECONFIG ?= ${HOME}/.kube/config
 
-export KUBEBUILDER_HOME := /usr/local/kubebuilder
-
-export PATH := ${PATH}:${KUBEBUILDER_HOME}/bin
+export KUBEBUILDER_ASSETS ?=/usr/local/kubebuilder/bin
 
 BEFORE_SCRIPT := $(shell build/before-make.sh)
 
@@ -38,7 +36,7 @@ clean:
 	kind delete cluster --name ${PROJECT_NAME}-functional-test
 	
 .PHONY: dependencies
-dependencies:
+dependencies: ensure-kubebuilder-tools
 	@build/install-dependencies.sh
 
 .PHONY: check
@@ -178,3 +176,21 @@ functional-test-full: build-image-coverage
 .PHONY: functional-test-full-clean
 functional-test-full-clean:
 	@build/run-functional-tests-clean.sh 
+
+
+
+K8S_VERSION ?=1.30.0
+KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOOS)-$(GOARCH).tar.gz
+KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
+
+# download the kubebuilder-tools to get kube-apiserver binaries from it
+ensure-kubebuilder-tools:
+ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
+	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
+	mkdir -p '$(KUBEBUILDER_ASSETS)'
+	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
+	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
+else
+	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
+endif
+.PHONY: ensure-kubebuilder-tools
